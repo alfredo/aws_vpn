@@ -1,0 +1,11 @@
+# AWS credentials
+[aws]
+key:
+secret:
+region: us-east-1
+key_pair: proxy
+
+# Settings for the VPN
+[vpn]
+user:
+password:
