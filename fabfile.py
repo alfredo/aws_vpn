@@ -80,7 +80,7 @@ def _get_proxy_instance(tag_name):
             if i.tags.get('Name') == tag_name:
                 if i.state in ['pending']:
                     print red('FAILURE: Instance is starting up.')
-                    return exit(0)
+                    return exit(1)
                 return _get_instance_details(i)
     # There is no instance with our tag, we assume it hasn't been created
     return {}
@@ -109,7 +109,7 @@ def _start_instance():
     else:
         message = "FAILURE: Instance status %s." % status
         print red(message)
-        return exit(0)
+        return exit(1)
     return _get_instance_details(instance)
 
 
@@ -152,7 +152,7 @@ def _stop_instance(instance_id):
 
 
 def provision():
-    """Provisions the EC2 instance"""
+    """Provisions the EC2 instance."""
     confirmation = red('You are about to Provision an EC2 %s instance.'
                        ' Procceed? ' % EC2_INSTANCE_TYPE)
     if console.confirm(confirmation):
@@ -160,10 +160,43 @@ def provision():
         if instance:
             message = 'FAILURE: Instance has been already provisioned'
             print red(message)
-            return exit(0)
+            return exit(1)
         # Instance does not exist, create it.
         instance = _start_instance()
         _provision_instance(instance)
         return instance
     else:
         print yellow('Phew, aborted.')
+
+
+def halt():
+    """Halts the EC2 instance."""
+    instance = _get_proxy_instance(TAG_NAME)
+    if instance and instance['state'] in ['running']:
+        print yellow('Stopping instance.')
+        local('osascript %s/vpnconnection.scpt %s halted'
+              '' % (PROJECT_ROOT, TAG_NAME))
+        conn.stop_instances([instance['id']])
+        return exit(0)
+    print red('FAILURE: Instance cannot be stopped.')
+    print instance
+    return exit(1)
+
+
+def up():
+    """Starts the EC2 instance."""
+    instance = _get_proxy_instance(TAG_NAME)
+    # Make sure the instance exists and has one of our valid status.
+    if instance and instance['state'] in ['stopped', 'running']:
+        print yellow('Starting instance.')
+        if instance['state'] == 'stopped':
+            conn.start_instances([instance['id']])
+            # Give it sometime to load
+            time.sleep(30)
+        print yellow(instance['url'])
+        local('osascript %s/vpnconnection.scpt %s %s'
+              '' % (PROJECT_ROOT, TAG_NAME, instance['url']))
+        return exit(0)
+    print red('FAILURE: Instance cannot be started.')
+    print instance
+    return exit(1)
